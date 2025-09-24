@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMM Enrollment QR Code Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="qr-generator.js"></script>
+    <script src="full-qr.js"></script>
+    <!-- Embedded minimal QR library fallback (QRCode.js style) -->
+    <script>
+    /* Minimal fallback QR (using existing MiniQR) adapter */
+    window.generateFallbackQR = async function(text, size){
+        // Try MiniQR first (QRCodeGenerator)
+        if (window.QRCodeGenerator) {
+            try {
+                return await QRCodeGenerator.generateQR(text, size||300);
+            } catch(e){
+                const msg = (e && e.message)||'';
+                console.warn('MiniQR fallback error:', msg);
+                // If payload too large or any structural issue, escalate to FullQR
+                const large = /Payload too large|count too large|Internal limit/i.test(msg);
+                if(!large) {
+                    // Non-size error: still try FullQR as next attempt
+                    // continue to FullQR block
+                }
+            }
+        }
+        if (window.FullQR){
+            try {
+                const res = FullQR.generate(text);
+                const scale = Math.max(3, Math.floor((size||300)/res.size));
+                const canvas=document.createElement('canvas');
+                canvas.width=res.size*scale; canvas.height=res.size*scale;
+                const ctx=canvas.getContext('2d');
+                ctx.fillStyle='#FFF'; ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.fillStyle='#000';
+                for(let r=0;r<res.size;r++) for(let c=0;c<res.size;c++) if(res.modules[r][c]) ctx.fillRect(c*scale,r*scale,scale,scale);
+                return canvas;
+            } catch(e2){
+                console.error('FullQR generation failed:', e2.message);
+                throw new Error('Offline generation failed (FullQR): '+e2.message);
+            }
+        }
+        throw new Error('No fallback QR engine available (both MiniQR and FullQR unavailable)');
+    }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EMM Enrollment QR Code Generator</h1>
+            <p>Generate QR codes for Android Enterprise Mobile Management enrollment</p>
+        </header>
+
+        <main>
+            <form id="emmForm" class="form-container">
+                <div class="form-section" id="platformSection">
+                    <h2>Platform</h2>
+                    <div class="form-group">
+                        <label for="emmPlatform">EMM Platform:</label>
+                        <select id="emmPlatform" name="emmPlatform">
+                            <option value="airwatch" selected>Airwatch</option>
+                            <option value="soti">SOTI</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="connectivityMode">Connectivity Mode:</label>
+                        <select id="connectivityMode" name="connectivityMode">
+                            <option value="wifi" selected>WiFi</option>
+                            <option value="mobile">Mobile Data</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-section" id="wifiSection">
+                    <h2>WiFi Configuration</h2>
+                    
+                    <div class="form-group">
+                        <label for="wifiSSID">WiFi SSID:</label>
+                        <input type="text" id="wifiSSID" name="wifiSSID" value="ZEWireless" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wifiSecurity">WiFi Security Type:</label>
+                        <select id="wifiSecurity" name="wifiSecurity" required>
+                            <option value="WPA" selected>WPA</option>
+                            <option value="WPA2">WPA2</option>
+                            <option value="WEP">WEP</option>
+                            <option value="OPEN">Open</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="wifiPassword">WiFi Password:</label>
+                        <input type="password" id="wifiPassword" name="wifiPassword" value="bozhqy6#">
+                        <button type="button" id="togglePassword" class="toggle-btn">Show</button>
+                    </div>
+                </div>
+
+                <div class="form-section" id="airwatchSection">
+                    <h2>EMM Agent Configuration</h2>
+                    
+                    <div class="form-group">
+                        <label for="agentUrlSelect">Agent Download URL:</label>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <select id="agentUrlSelect" style="flex:1;min-width:220px;"></select>
+                            <button type="button" id="addAgentBtn" class="btn btn-secondary" style="flex:0 0 auto;">Add</button>
+                            <button type="button" id="editAgentBtn" class="btn btn-secondary" style="flex:0 0 auto;">Edit</button>
+                        </div>
+                        <input type="hidden" id="agentUrl" name="agentUrl" value="https://storage.googleapis.com/its-compute-emc-st-ftp-publicbucekt-q/AirWatchAgent-playstore-release-23.01.1.1-SNAPSHOT.apk" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="serverUrl">Server URL:</label>
+                        <input type="url" id="serverUrl" name="serverUrl" value="https://techp.awmdm.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="groupId">Group ID:</label>
+                        <input type="text" id="groupId" name="groupId" value="TestPlan-DO" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" name="username" value="TestPlan-DO" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" value="TestPlan-DO" required>
+                        <button type="button" id="toggleEmmPassword" class="toggle-btn">Show</button>
+                    </div>
+                </div>
+
+                <div class="form-section" id="sotiSection" style="display:none;">
+                    <h2>SOTI Enrollment</h2>
+                    <div class="form-group">
+                        <label for="enrollmentId">Enrollment ID:</label>
+                        <input type="text" id="enrollmentId" name="enrollmentId" placeholder="e.g. WEWUXV79">
+                    </div>
+                    <div class="form-group">
+                        <label for="sotiAgentUrlSelect">SOTI Agent Download URL:</label>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <select id="sotiAgentUrlSelect" style="flex:1;min-width:220px;"></select>
+                            <button type="button" id="addSotiAgentBtn" class="btn btn-secondary" style="flex:0 0 auto;">Add</button>
+                            <button type="button" id="editSotiAgentBtn" class="btn btn-secondary" style="flex:0 0 auto;">Edit</button>
+                        </div>
+                        <input type="hidden" id="sotiAgentUrl" name="sotiAgentUrl" value="https://storage.googleapis.com/its-compute-emc-st-ftp-publicbucekt-q/GoogleMobiControl1513_1071.apk" />
+                    </div>
+                    <details class="advanced-collapsible" id="sotiAdvanced" style="margin-top:10px;">
+                        <summary>SOTI Advanced (optional)</summary>
+                        <div class="advanced-inner">
+                            <p class="advanced-hint">Override defaults for SOTI provisioning.</p>
+                            <div class="form-group">
+                                <label for="sotiSystemApps">Leave System Apps Enabled:</label>
+                                <select id="sotiSystemApps" name="sotiSystemApps">
+                                    <option value="false">No</option>
+                                    <option value="true" selected>Yes</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="form-section" id="advancedSection">
+                    <h2>Advanced Options</h2>
+                    <details class="advanced-collapsible" id="advancedFlags">
+                        <summary>Provisioning Flags (optional)</summary>
+                        <div class="advanced-inner">
+                            <p class="advanced-hint">Adjust only if you understand the impact. Defaults suit most enrollments.</p>
+                            <div class="form-group">
+                                <label for="leaveSystemApps">Leave All System Apps Enabled:</label>
+                                <select id="leaveSystemApps" name="leaveSystemApps">
+                                    <option value="true">True</option>
+                                    <option value="false" selected>False</option>
+                                </select>
+                            </div>
+                            <input type="hidden" id="signatureChecksum" name="signatureChecksum" value="6kyqxDOjgS30jvQuzh4uvHPk-0bmAD-1QU7vtW7i_o8=" />
+                        </div>
+                    </details>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">Generate QR Code</button>
+                    <button type="button" id="resetForm" class="btn btn-secondary">Reset Form</button>
+                    <button type="button" id="toggleTheme" class="btn btn-secondary" style="flex:0 0 auto;min-width:140px;">Toggle Theme</button>
+                </div>
+            </form>
+
+            <div id="output" class="output-section" style="display: none;">
+                <h2>Generated QR Code</h2>
+                <div id="qrcode" class="qr-container"></div>
+                
+                <div class="json-output">
+                    <h3>JSON Configuration</h3>
+                    <textarea id="jsonOutput" readonly></textarea>
+                    <button type="button" id="copyJson" class="btn btn-copy">Copy JSON</button>
+                </div>
+                
+                <div class="download-section">
+                    <button type="button" id="downloadQR" class="btn btn-download">Download QR Code</button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 EMM QR Code Generator. Built for Android Enterprise enrollment.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <!-- Agent Add Modal -->
+    <div id="agentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999;align-items:center;justify-content:center;">
+        <div style="background:var(--card-bg,#fff);padding:20px;max-width:420px;width:100%;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);">
+            <h3 style="margin-top:0;">Add Agent Entry</h3>
+            <form id="agentAddForm">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label for="newAgentPlatform">Platform:</label>
+                    <select id="newAgentPlatform" required>
+                        <option value="airwatch">AirWatch</option>
+                        <option value="soti">SOTI</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label for="newAgentLabel">Display Label:</label>
+                    <input type="text" id="newAgentLabel" placeholder="e.g. AirWatch 23.06 Release" required />
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label for="newAgentUrl">Download URL (.apk):</label>
+                    <input type="url" id="newAgentUrl" placeholder="https://example.com/agent.apk" required />
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button type="button" id="cancelAgentModal" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+                <p style="font-size:12px;color:#666;margin-top:10px;line-height:1.3;">Entries are stored locally in your browser (localStorage). Use the export/import feature later for sharing if needed.</p>
+            </form>
+        </div>
+    </div>
+    <script>
+    // Theme toggle (light/dark)
+    (function(){
+        const btn = document.getElementById('toggleTheme');
+        if(!btn) return;
+        const stored = localStorage.getItem('emmqr-theme');
+        if(stored==='dark') document.body.classList.add('theme-dark');
+        btn.addEventListener('click',()=>{
+            document.body.classList.toggle('theme-dark');
+            localStorage.setItem('emmqr-theme', document.body.classList.contains('theme-dark') ? 'dark' : 'light');
+        });
+    })();
+    </script>
+</body>
+</html>
