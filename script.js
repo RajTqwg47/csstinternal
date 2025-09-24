@@ -78,6 +78,16 @@ class EMMQRGenerator {
         if (editAw) editAw.addEventListener('click',()=>this.openAgentModal('airwatch', true));
         const editSoti = document.getElementById('editSotiAgentBtn');
         if (editSoti) editSoti.addEventListener('click',()=>this.openAgentModal('soti', true));
+
+        // Agent DB export/import
+        const exportBtn = document.getElementById('exportAgentDb');
+        if (exportBtn) exportBtn.addEventListener('click', ()=> this.exportAgentDb());
+        const importBtn = document.getElementById('importAgentDb');
+        const importFile = document.getElementById('importFileInput');
+        if (importBtn && importFile) {
+            importBtn.addEventListener('click', ()=> importFile.click());
+            importFile.addEventListener('change', (e)=> this.importAgentDb(e));
+        }
     }
 
     // -------- Agent DB Management --------
@@ -227,6 +237,92 @@ class EMMQRGenerator {
             }
         }
         this.closeAgentModal();
+    }
+
+    // Export/Import Functions
+    exportAgentDb(){
+        try {
+            const exportData = {
+                version: 1,
+                timestamp: new Date().toISOString(),
+                agentDb: this.agentDb
+            };
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `emmqr-agent-db-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            // Visual feedback
+            const btn = document.getElementById('exportAgentDb');
+            const orig = btn.textContent;
+            btn.textContent = 'Exported!';
+            setTimeout(()=> btn.textContent = orig, 2000);
+        } catch(e) {
+            console.error('Export failed:', e);
+            alert('Export failed. See console for details.');
+        }
+    }
+
+    importAgentDb(event){
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (!imported.agentDb || typeof imported.agentDb !== 'object') {
+                    alert('Invalid agent database file format.');
+                    return;
+                }
+                
+                // Merge logic - add new entries, skip duplicates by URL
+                let added = 0;
+                ['airwatch', 'soti'].forEach(platform => {
+                    if (imported.agentDb[platform] && Array.isArray(imported.agentDb[platform])) {
+                        imported.agentDb[platform].forEach(entry => {
+                            if (entry.label && entry.url) {
+                                const existing = this.agentDb[platform].some(e => e.url === entry.url);
+                                if (!existing) {
+                                    this.agentDb[platform].push({
+                                        label: this.sanitize(entry.label),
+                                        url: this.sanitize(entry.url)
+                                    });
+                                    added++;
+                                }
+                            }
+                        });
+                    }
+                });
+                
+                this.saveAgentDb();
+                this.populateAgentSelects();
+                
+                // Visual feedback
+                const btn = document.getElementById('importAgentDb');
+                const orig = btn.textContent;
+                btn.textContent = `Imported ${added}!`;
+                setTimeout(()=> btn.textContent = orig, 3000);
+                
+                if (added === 0) {
+                    alert('No new agents imported (all URLs already exist).');
+                } else {
+                    alert(`Successfully imported ${added} new agent entries.`);
+                }
+            } catch(e) {
+                console.error('Import failed:', e);
+                alert('Import failed. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset file input
+        event.target.value = '';
     }
     // -------- End Agent DB Management --------
 

@@ -180,6 +180,16 @@
                     </details>
                 </div>
 
+                <div class="form-section" id="agentDbSection">
+                    <h2>Agent Database Management</h2>
+                    <p style="font-size:13px;color:#666;margin-bottom:12px;">Export your agent database to share with others. Import to load shared agent lists.</p>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <button type="button" id="exportAgentDb" class="btn btn-secondary">Export Agent DB</button>
+                        <button type="button" id="importAgentDb" class="btn btn-secondary">Import Agent DB</button>
+                        <input type="file" id="importFileInput" accept=".json" style="display:none;">
+                    </div>
+                </div>
+
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">Generate QR Code</button>
                     <button type="button" id="resetForm" class="btn btn-secondary">Reset Form</button>
